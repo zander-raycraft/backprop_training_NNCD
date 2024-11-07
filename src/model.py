@@ -12,7 +12,7 @@ class FeedForwardModel:
 
         @params: size_input -> int, number of input nodes.
         @params: size_output -> int, number of output nodes.
-        @params: size_hidden -> list<int>, number of nodes in each hidden layer.
+        @params: size_hidden -> list<int>, each int represents the number of nodes in each hidden layer.
         @params: learning_rate -> float, learning rate for weight updates.
     """
 
@@ -67,24 +67,35 @@ class FeedForwardModel:
         @params: target_outputs -> array-like, target output values for training.
     """
     def backpropagate(self, inputs, target_outputs):
+        # Forward pass to get actual outputs
         actual_outputs = self.forward(inputs)
         output_errors = [target_outputs[i] - actual_outputs[i] for i in range(len(target_outputs))]
+
+        # Calculate deltas for output layer
         delta_output = []
         for i, node in enumerate(self.output_layer.nodes):
             gradient = output_errors[i] * actual_outputs[i] * (1 - actual_outputs[i])  # Sigmoid derivative
             delta_output.append(gradient)
-            for j, weight in enumerate(node.weights):
+            for j in range(len(node.weights)):
                 node.weights[j] += self.learning_rate * gradient * self.hidden_layers[-1].get_outputs()[j]
         deltas = delta_output
         for i in reversed(range(len(self.hidden_layers))):
             hidden_layer = self.hidden_layers[i]
             prev_outputs = self.hidden_layers[i - 1].get_outputs() if i > 0 else inputs
             new_deltas = []
+
             for j, node in enumerate(hidden_layer.nodes):
-                error = sum(delta * node.weights[j] for delta in deltas)
-                gradient = error * (1 - node.output ** 2)  # Tanh derivative
+                # Calculate error for hidden layer weights connecting to the next layer's deltas/ allow differing layers
+                error = sum(
+                    deltas[k] * (self.hidden_layers[i + 1].nodes[k].weights[j] if i < len(self.hidden_layers) - 1 else
+                                 self.output_layer.nodes[k].weights[j])
+                    for k in range(len(deltas))
+                )
+                gradient = error * (1 - node.output ** 2)  # Tanh derivative for hidden layers
                 new_deltas.append(gradient)
-                for k, weight in enumerate(node.weights):
+
+                # Update weights based on calculated gradient
+                for k in range(len(node.weights)):
                     node.weights[k] += self.learning_rate * gradient * prev_outputs[k]
             deltas = new_deltas
 
